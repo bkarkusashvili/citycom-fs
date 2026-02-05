@@ -157,4 +157,31 @@ export class FilesystemService {
 
     return node !== null;
   }
+
+  // Version support methods
+  async getFsNodeByPath(tenantId: string, nodePath: string): Promise<{ id: string }> {
+    const normalized = normalizePath(nodePath);
+
+    const node = await this.prisma.fsNode.findUnique({
+      where: { tenantId_path: { tenantId, path: normalized } },
+      select: { id: true },
+    });
+
+    if (!node) {
+      throw new NotFoundException('Path not found');
+    }
+
+    return node;
+  }
+
+  async updateFileBlob(tenantId: string, filePath: string, blobId: string, size: bigint): Promise<void> {
+    const normalized = normalizePath(filePath);
+
+    await this.prisma.fsNode.update({
+      where: { tenantId_path: { tenantId, path: normalized } },
+      data: { blobId, size },
+    });
+
+    await this.invalidateCache(tenantId, [filePath]);
+  }
 }

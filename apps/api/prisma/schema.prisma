@@ -37,6 +37,7 @@ model FsNode {
   parent FsNode?  @relation("FsNodeParent", fields: [parentId], references: [id], onDelete: Cascade)
   children FsNode[] @relation("FsNodeParent")
   blob   Blob? @relation(fields: [blobId], references: [id])
+  versions FileVersion[]
 
   @@unique([tenantId, path])
   @@index([tenantId, parentId])
@@ -54,7 +55,25 @@ model Blob {
   createdAt      DateTime @default(now()) @map("created_at")
 
   files FsNode[]
+  versions FileVersion[]
 
   @@index([contentHash])
   @@map("blobs")
+}
+
+model FileVersion {
+  id        String   @id @default(uuid())
+  fsNodeId  String   @map("fs_node_id")
+  blobId    String   @map("blob_id")
+  version   Int
+  size      BigInt
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String   @map("created_by")
+
+  fsNode FsNode @relation(fields: [fsNodeId], references: [id], onDelete: Cascade)
+  blob   Blob   @relation(fields: [blobId], references: [id])
+
+  @@unique([fsNodeId, version])
+  @@index([fsNodeId])
+  @@map("file_versions")
 }

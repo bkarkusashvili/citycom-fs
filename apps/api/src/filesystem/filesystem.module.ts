@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { FilesystemController } from './filesystem.controller';
 import { FilesystemService } from './filesystem.service';
-import { DirectoryService, FileService, BlobService } from './services';
+import { DirectoryService, FileService, BlobService, VersionService } from './services';
 import {
   STORAGE_PROVIDER,
   LOCAL_STORAGE_PROVIDER,
@@ -41,10 +41,11 @@ import { AuthModule } from '../auth/auth.module';
       inject: [ConfigService],
     },
     BlobService,
+    VersionService,
     DirectoryService,
     FileService,
     FilesystemService,
   ],
-  exports: [FilesystemService, DirectoryService, FileService, BlobService],
+  exports: [FilesystemService, DirectoryService, FileService, BlobService, VersionService],
 })
 export class FilesystemModule {}

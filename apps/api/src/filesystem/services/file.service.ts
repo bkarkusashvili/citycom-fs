@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger, forwardRef,
 import { PrismaService } from '../../infrastructure/prisma.service';
 import { BlobService } from './blob.service';
 import { DirectoryService } from './directory.service';
+import { VersionService } from './version.service';
 import { FsNodeData } from '../utils/types';
 import { normalizePath, getParentPath, getBasename } from '../utils/path.utils';
 
@@ -13,6 +14,8 @@ export class FileService {
     private readonly prisma: PrismaService,
     private readonly blobService: BlobService,
     private readonly directoryService: DirectoryService,
+    @Inject(forwardRef(() => VersionService))
+    private readonly versionService: VersionService,
   ) {}
 
   async write(tenantId: string, filePath: string, content: Buffer): Promise<FsNodeData> {
@@ -47,9 +50,16 @@ export class FileService {
         throw new BadRequestException('Path is a directory');
       }
 
-      // Decrement old blob reference if different
+      // Save current version before overwriting (if content is different)
       if (existingFile.blobId && existingFile.blobId !== blobInfo.id) {
-        await this.blobService.decrementReference(existingFile.blobId);
+        await this.versionService.createVersion(
+          existingFile.id,
+          existingFile.blobId,
+          existingFile.size,
+          tenantId,
+        );
+        // Note: createVersion already increments the blob reference,
+        // so we don't need to decrement it here - it transfers ownership
       }
 
       // Update file
@@ -120,6 +130,9 @@ export class FileService {
     if (file.type !== 'file') {
       throw new BadRequestException('Path is a directory');
     }
+
+    // Delete all versions first (handles blob reference cleanup)
+    await this.versionService.deleteAllVersions(file.id);
 
     if (file.blobId) {
       await this.blobService.decrementReference(file.blobId);

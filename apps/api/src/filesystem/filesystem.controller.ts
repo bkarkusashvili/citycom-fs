@@ -24,6 +24,7 @@ import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, CurrentUserData } from '../common/decorators/current-user.decorator';
 import { FilesystemService } from './filesystem.service';
+import { VersionService } from './services';
 import {
   CreateDirectoryDto,
   CopyMoveDto,
@@ -36,7 +37,10 @@ import {
 @UseGuards(JwtAuthGuard)
 @Controller('fs')
 export class FilesystemController {
-  constructor(private readonly fsService: FilesystemService) {}
+  constructor(
+    private readonly fsService: FilesystemService,
+    private readonly versionService: VersionService,
+  ) {}
 
   // Directory operations
 
@@ -206,5 +210,61 @@ export class FilesystemController {
   ) {
     const exists = await this.fsService.exists(user.id, path);
     return { exists };
+  }
+
+  // Version operations
+
+  @Get('versions')
+  @ApiOperation({ summary: 'List all versions of a file' })
+  @ApiResponse({ status: 200, description: 'List of file versions' })
+  async listVersions(
+    @CurrentUser() user: CurrentUserData,
+    @Query('path') path: string,
+  ) {
+    const info = await this.fsService.getInfo(user.id, path);
+    if (info.mimeType === 'inode/directory') {
+      throw new Error('Cannot get versions of a directory');
+    }
+    // Get fsNode id from path
+    const fsNode = await this.fsService.getFsNodeByPath(user.id, path);
+    return this.versionService.listVersions(fsNode.id);
+  }
+
+  @Get('versions/download')
+  @ApiOperation({ summary: 'Download a specific version of a file' })
+  async downloadVersion(
+    @CurrentUser() user: CurrentUserData,
+    @Query('path') path: string,
+    @Query('version') version: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const info = await this.fsService.getInfo(user.id, path);
+    const fsNode = await this.fsService.getFsNodeByPath(user.id, path);
+    const content = await this.versionService.readVersionContent(fsNode.id, parseInt(version, 10));
+
+    res.set({
+      'Content-Type': info.mimeType,
+      'Content-Disposition': `attachment; filename="${info.name}"`,
+    });
+
+    return new StreamableFile(content);
+  }
+
+  @Post('versions/restore')
+  @ApiOperation({ summary: 'Restore a file to a specific version' })
+  async restoreVersion(
+    @CurrentUser() user: CurrentUserData,
+    @Query('path') path: string,
+    @Query('version') version: string,
+  ) {
+    const fsNode = await this.fsService.getFsNodeByPath(user.id, path);
+    const restored = await this.versionService.restoreVersion(
+      fsNode.id,
+      parseInt(version, 10),
+      user.id,
+    );
+    // Update the FsNode with the restored blob
+    await this.fsService.updateFileBlob(user.id, path, restored.blobId, restored.size);
+    return { success: true, message: `Restored to version ${version}` };
   }
 }
