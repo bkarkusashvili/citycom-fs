@@ -1,4 +1,5 @@
 export { Breadcrumb } from './Breadcrumb';
+export { DestinationPickerModal } from './DestinationPickerModal';
 export { FilePreviewModal } from './FilePreviewModal';
 export { FileRow } from './FileRow';
 export { FileTable } from './FileTable';

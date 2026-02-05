@@ -1,4 +1,4 @@
-import { Folder, File, Eye, Download, Trash2 } from 'lucide-react';
+import { Folder, File, Eye, Download, Trash2, Copy, Move } from 'lucide-react';
 import clsx from 'clsx';
 import type { FsNode } from '../../types';
 import { formatSize, formatDate } from '../../utils/format';
@@ -11,6 +11,8 @@ interface FileRowProps {
   onPreview: () => void;
   onDownload: () => void;
   onDelete: () => void;
+  onCopy: () => void;
+  onMove: () => void;
 }
 
 export function FileRow({
@@ -21,6 +23,8 @@ export function FileRow({
   onPreview,
   onDownload,
   onDelete,
+  onCopy,
+  onMove,
 }: FileRowProps) {
   const isDirectory = item.mimeType === 'inode/directory';
   const isPreviewable = item.mimeType.startsWith('text/') || item.mimeType === 'application/json';
@@ -74,6 +78,26 @@ export function FileRow({
               </button>
             </>
           )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCopy();
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Copy to..."
+          >
+            <Copy size={16} className="text-gray-500" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove();
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Move to..."
+          >
+            <Move size={16} className="text-gray-500" />
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();

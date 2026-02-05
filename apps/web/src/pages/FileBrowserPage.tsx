@@ -5,6 +5,7 @@ import { fsApi } from '../services/api';
 import { useFileOperations } from '../hooks/useFileOperations';
 import {
   Breadcrumb,
+  DestinationPickerModal,
   FilePreviewModal,
   FileTable,
   Header,
@@ -19,7 +20,17 @@ export default function FileBrowserPage() {
   const [currentPath, setCurrentPath] = useState('/');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isNewFolderModalOpen, setIsNewFolderModalOpen] = useState(false);
-  const [previewFile, setPreviewFile] = useState<{ path: string; content: string } | null>(null);
+  const [previewFile, setPreviewFile] = useState<{
+    path: string;
+    mimeType: string;
+    content?: string;
+    blobUrl?: string;
+  } | null>(null);
+  const [copyMoveModal, setCopyMoveModal] = useState<{
+    isOpen: boolean;
+    mode: 'copy' | 'move';
+    item: FsNode | null;
+  }>({ isOpen: false, mode: 'copy', item: null });
 
   // Fetch directory contents with pagination
   const {
@@ -42,7 +53,16 @@ export default function FileBrowserPage() {
   const items: FsNode[] = data?.pages.flatMap((page) => page.items) ?? [];
 
   // File operations (mutations)
-  const { createFolder, isCreatingFolder, deleteItems, uploadFile } = useFileOperations({
+  const {
+    createFolder,
+    isCreatingFolder,
+    deleteItems,
+    uploadFile,
+    copyItem,
+    isCopying,
+    moveItem,
+    isMoving,
+  } = useFileOperations({
     currentPath,
     onFolderCreated: () => {
       setIsNewFolderModalOpen(false);
@@ -50,8 +70,20 @@ export default function FileBrowserPage() {
     onDeleted: () => {
       setSelectedItems(new Set());
     },
+    onCopied: () => {
+      setCopyMoveModal({ isOpen: false, mode: 'copy', item: null });
+    },
+    onMoved: () => {
+      setCopyMoveModal({ isOpen: false, mode: 'move', item: null });
+    },
     onUploadError: () => {
       alert('Upload failed. Check console for details.');
+    },
+    onCopyError: () => {
+      alert('Copy failed. Check console for details.');
+    },
+    onMoveError: () => {
+      alert('Move failed. Check console for details.');
     },
   });
 
@@ -78,13 +110,31 @@ export default function FileBrowserPage() {
   const handleItemDoubleClick = async (item: FsNode) => {
     if (item.mimeType === 'inode/directory') {
       navigateToFolder(item.path);
-    } else if (item.mimeType.startsWith('text/') || item.mimeType === 'application/json') {
+    } else if (item.mimeType.startsWith('image/')) {
+      // Image preview - fetch as blob and create URL
+      try {
+        const blob = await fsApi.downloadFile(item.path);
+        const blobUrl = URL.createObjectURL(blob);
+        setPreviewFile({ path: item.path, mimeType: item.mimeType, blobUrl });
+      } catch (err) {
+        console.error('Failed to load image:', err);
+      }
+    } else if (
+      item.mimeType.startsWith('text/') ||
+      item.mimeType === 'application/json' ||
+      item.mimeType === 'application/javascript' ||
+      item.mimeType === 'application/xml'
+    ) {
+      // Text/code preview
       try {
         const content = await fsApi.readFile(item.path);
-        setPreviewFile({ path: item.path, content });
+        setPreviewFile({ path: item.path, mimeType: item.mimeType, content });
       } catch (err) {
         console.error('Failed to read file:', err);
       }
+    } else {
+      // Unsupported type - still show preview modal with download option
+      setPreviewFile({ path: item.path, mimeType: item.mimeType });
     }
   };
 
@@ -121,6 +171,28 @@ export default function FileBrowserPage() {
     }
   };
 
+  const handleCopy = (item: FsNode) => {
+    setCopyMoveModal({ isOpen: true, mode: 'copy', item });
+  };
+
+  const handleMove = (item: FsNode) => {
+    setCopyMoveModal({ isOpen: true, mode: 'move', item });
+  };
+
+  const handleCopyMoveConfirm = (destPath: string) => {
+    if (!copyMoveModal.item) return;
+    const destFullPath =
+      destPath === '/'
+        ? `/${copyMoveModal.item.name}`
+        : `${destPath}/${copyMoveModal.item.name}`;
+
+    if (copyMoveModal.mode === 'copy') {
+      copyItem({ item: copyMoveModal.item, destPath: destFullPath });
+    } else {
+      moveItem({ item: copyMoveModal.item, destPath: destFullPath });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header userEmail={user?.email} onLogout={logout} />
@@ -148,6 +220,8 @@ export default function FileBrowserPage() {
             onPreview={handleItemDoubleClick}
             onDownload={handleDownload}
             onDelete={handleDeleteSingle}
+            onCopy={handleCopy}
+            onMove={handleMove}
             onLoadMore={fetchNextPage}
           />
         </div>
@@ -160,7 +234,29 @@ export default function FileBrowserPage() {
         onCreate={createFolder}
       />
 
-      <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
+      <FilePreviewModal
+        file={previewFile}
+        onClose={() => {
+          if (previewFile?.blobUrl) {
+            URL.revokeObjectURL(previewFile.blobUrl);
+          }
+          setPreviewFile(null);
+        }}
+        onDownload={previewFile ? () => {
+          const item = items.find(i => i.path === previewFile.path);
+          if (item) handleDownload(item);
+        } : undefined}
+      />
+
+      <DestinationPickerModal
+        isOpen={copyMoveModal.isOpen}
+        title={copyMoveModal.mode === 'copy' ? 'Copy to...' : 'Move to...'}
+        actionLabel={copyMoveModal.mode === 'copy' ? 'Copy Here' : 'Move Here'}
+        isLoading={isCopying || isMoving}
+        excludePath={copyMoveModal.item?.path}
+        onClose={() => setCopyMoveModal({ isOpen: false, mode: 'copy', item: null })}
+        onSelect={handleCopyMoveConfirm}
+      />
     </div>
   );
 }

@@ -14,6 +14,8 @@ interface FileTableProps {
   onPreview: (item: FsNode) => void;
   onDownload: (item: FsNode) => void;
   onDelete: (item: FsNode) => void;
+  onCopy: (item: FsNode) => void;
+  onMove: (item: FsNode) => void;
   onLoadMore: () => void;
 }
 
@@ -29,6 +31,8 @@ export function FileTable({
   onPreview,
   onDownload,
   onDelete,
+  onCopy,
+  onMove,
   onLoadMore,
 }: FileTableProps) {
   if (isLoading) {
@@ -65,6 +69,8 @@ export function FileTable({
               onPreview={() => onPreview(item)}
               onDownload={() => onDownload(item)}
               onDelete={() => onDelete(item)}
+              onCopy={() => onCopy(item)}
+              onMove={() => onMove(item)}
             />
           ))}
         </tbody>

@@ -1,16 +1,23 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { FilesystemModule } from './filesystem/filesystem.module';
 import { InfrastructureModule } from './infrastructure/infrastructure.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 300000, // 5 minutes in ms
+      max: 1000, // Max items in cache
     }),
     ThrottlerModule.forRoot([
       {
@@ -32,6 +39,7 @@ import { InfrastructureModule } from './infrastructure/infrastructure.module';
     InfrastructureModule,
     AuthModule,
     FilesystemModule,
+    HealthModule,
   ],
   providers: [
     {
