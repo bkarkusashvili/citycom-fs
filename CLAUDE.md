@@ -282,7 +282,7 @@ BLOB_STORAGE_PATH=./data/blobs
 - [x] Path traversal prevention
 - [x] Rate limiting on auth endpoints (3 reg/min, 5 login/min)
 - [x] Global rate limiting (10/s, 100/min, 1000/hr)
-- [ ] Security headers (CSP, HSTS)
+- [x] Security headers (helmet: CSP, HSTS, X-Frame-Options, etc.)
 - [ ] Strong JWT secret in production
 - [ ] HTTPS enforcement
 

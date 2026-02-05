@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { WinstonModule } from 'nest-winston';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { getLoggerConfig } from './common/logger/logger.config';
 
@@ -11,6 +12,26 @@ async function bootstrap() {
   });
 
   const logger = new Logger('Bootstrap');
+
+  // Security headers
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+        },
+      },
+      crossOriginEmbedderPolicy: false, // Allow loading resources cross-origin
+      crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow CORS
+    }),
+  );
 
   // Enable CORS for frontend
   app.enableCors({
