@@ -109,7 +109,7 @@ export class FilesystemController {
       type: 'object',
       properties: {
         file: { type: 'string', format: 'binary' },
-        path: { type: 'string' },
+        path: { type: 'string', description: 'Directory path to upload to (e.g., "/" or "/documents")' },
       },
     },
   })
@@ -123,10 +123,11 @@ export class FilesystemController {
       throw new Error('No file uploaded');
     }
     // Default to root if no path provided
-    const targetPath = path || '/';
-    const filePath = targetPath.endsWith('/') || targetPath === '/'
-      ? (targetPath === '/' ? '/' + file.originalname : targetPath + file.originalname)
-      : targetPath;
+    const targetDir = path || '/';
+    // Always append filename to the directory path
+    const filePath = targetDir === '/'
+      ? '/' + file.originalname
+      : targetDir + '/' + file.originalname;
     return this.fsService.writeFile(user.id, filePath, file.buffer);
   }
 

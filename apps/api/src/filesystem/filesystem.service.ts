@@ -24,12 +24,22 @@ export class FilesystemService {
 
   private async invalidateCache(tenantId: string, paths: string[]): Promise<void> {
     const keysToDelete: string[] = [];
+    // Common limit values used in the app
+    const commonLimits = [50, 100, undefined];
+
     for (const path of paths) {
       keysToDelete.push(this.getCacheKey('info', tenantId, path));
-      keysToDelete.push(this.getCacheKey('list', tenantId, path));
-      // Also invalidate parent
+
+      // Invalidate list cache for this path with all common limits
+      for (const limit of commonLimits) {
+        keysToDelete.push(this.getCacheKey('list', tenantId, path, { limit }));
+      }
+
+      // Also invalidate parent directory listing
       const parentPath = path.split('/').slice(0, -1).join('/') || '/';
-      keysToDelete.push(this.getCacheKey('list', tenantId, parentPath));
+      for (const limit of commonLimits) {
+        keysToDelete.push(this.getCacheKey('list', tenantId, parentPath, { limit }));
+      }
     }
     await Promise.all(keysToDelete.map((key) => this.cacheManager.del(key)));
   }

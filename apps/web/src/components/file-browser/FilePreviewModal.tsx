@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Download, Loader2 } from 'lucide-react';
 import hljs from 'highlight.js';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import 'highlight.js/styles/github.css';
 
-type PreviewType = 'text' | 'code' | 'image' | 'unsupported';
+type PreviewType = 'text' | 'code' | 'image' | 'markdown' | 'pdf' | 'unsupported';
 
 interface FilePreviewModalProps {
   file: {
@@ -63,7 +65,17 @@ function getPreviewType(mimeType: string, path: string): PreviewType {
     return 'image';
   }
 
+  if (mimeType === 'application/pdf') {
+    return 'pdf';
+  }
+
   const ext = getFileExtension(path);
+
+  // Markdown gets special rendering
+  if (ext === 'md' || mimeType === 'text/markdown') {
+    return 'markdown';
+  }
+
   if (CODE_EXTENSIONS[ext]) {
     return 'code';
   }
@@ -134,6 +146,71 @@ export function FilePreviewModal({ file, onClose, onDownload }: FilePreviewModal
                 {file.content || ''}
               </code>
             </pre>
+          </div>
+        );
+
+      case 'markdown':
+        return (
+          <div className="overflow-auto flex-1 p-6 markdown-preview">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 pb-2 border-b">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-xl font-bold mt-6 mb-3 pb-1 border-b">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-lg font-semibold mt-4 mb-2">{children}</h3>,
+                p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
+                ul: ({ children }) => <ul className="list-disc pl-6 mb-3 space-y-1">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal pl-6 mb-3 space-y-1">{children}</ol>,
+                li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                table: ({ children }) => (
+                  <div className="overflow-x-auto my-4">
+                    <table className="min-w-full border-collapse border border-gray-300 text-sm">{children}</table>
+                  </div>
+                ),
+                thead: ({ children }) => <thead className="bg-gray-100">{children}</thead>,
+                th: ({ children }) => <th className="border border-gray-300 px-3 py-2 text-left font-semibold">{children}</th>,
+                td: ({ children }) => <td className="border border-gray-300 px-3 py-2">{children}</td>,
+                code: ({ className, children }) => {
+                  const isInline = !className;
+                  if (isInline) {
+                    return <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-red-600">{children}</code>;
+                  }
+                  return (
+                    <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-3 text-sm">
+                      <code className="font-mono">{children}</code>
+                    </pre>
+                  );
+                },
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-4 border-blue-500 pl-4 my-3 italic text-gray-600">{children}</blockquote>
+                ),
+                hr: () => <hr className="my-6 border-gray-300" />,
+                a: ({ href, children }) => (
+                  <a href={href} className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>
+                ),
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              }}
+            >
+              {file.content || ''}
+            </ReactMarkdown>
+          </div>
+        );
+
+      case 'pdf':
+        return (
+          <div className="flex-1 bg-gray-100">
+            {file.blobUrl ? (
+              <iframe
+                src={file.blobUrl}
+                className="w-full h-full min-h-[500px]"
+                title={fileName}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full min-h-[300px] text-gray-500">
+                <Loader2 size={20} className="animate-spin mr-2" />
+                Loading PDF...
+              </div>
+            )}
           </div>
         );
 

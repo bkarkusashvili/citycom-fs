@@ -110,32 +110,50 @@ export default function FileBrowserPage() {
   const handleItemDoubleClick = async (item: FsNode) => {
     if (item.mimeType === 'inode/directory') {
       navigateToFolder(item.path);
-    } else if (item.mimeType.startsWith('image/')) {
-      // Image preview - fetch as blob and create URL
+      return;
+    }
+
+    // Binary files that need blob URL (images, PDFs)
+    if (item.mimeType.startsWith('image/') || item.mimeType === 'application/pdf') {
       try {
         const blob = await fsApi.downloadFile(item.path);
         const blobUrl = URL.createObjectURL(blob);
         setPreviewFile({ path: item.path, mimeType: item.mimeType, blobUrl });
       } catch (err) {
-        console.error('Failed to load image:', err);
+        console.error('Failed to load file:', err);
       }
-    } else if (
+      return;
+    }
+
+    // Check if file is text-based (by mime or extension)
+    const ext = item.name.split('.').pop()?.toLowerCase() || '';
+    const textExtensions = [
+      'js', 'jsx', 'ts', 'tsx', 'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp',
+      'cs', 'php', 'swift', 'kt', 'scala', 'sh', 'bash', 'zsh', 'yml', 'yaml', 'json',
+      'xml', 'html', 'css', 'scss', 'less', 'sql', 'md', 'dockerfile', 'makefile', 'prisma',
+      'txt', 'log', 'env', 'gitignore', 'dockerignore',
+    ];
+
+    const isTextFile =
       item.mimeType.startsWith('text/') ||
       item.mimeType === 'application/json' ||
       item.mimeType === 'application/javascript' ||
-      item.mimeType === 'application/xml'
-    ) {
-      // Text/code preview
+      item.mimeType === 'application/xml' ||
+      item.mimeType === 'application/typescript' ||
+      textExtensions.includes(ext);
+
+    if (isTextFile) {
       try {
         const content = await fsApi.readFile(item.path);
         setPreviewFile({ path: item.path, mimeType: item.mimeType, content });
       } catch (err) {
         console.error('Failed to read file:', err);
       }
-    } else {
-      // Unsupported type - still show preview modal with download option
-      setPreviewFile({ path: item.path, mimeType: item.mimeType });
+      return;
     }
+
+    // Unsupported type - show preview modal with download option
+    setPreviewFile({ path: item.path, mimeType: item.mimeType });
   };
 
   const handleDownload = async (item: FsNode) => {

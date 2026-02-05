@@ -15,6 +15,26 @@ interface FileRowProps {
   onMove: () => void;
 }
 
+const PREVIEWABLE_EXTENSIONS = [
+  'js', 'jsx', 'ts', 'tsx', 'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp',
+  'cs', 'php', 'swift', 'kt', 'scala', 'sh', 'bash', 'zsh', 'yml', 'yaml', 'json',
+  'xml', 'html', 'css', 'scss', 'less', 'sql', 'md', 'dockerfile', 'makefile', 'prisma',
+];
+
+function isFilePreviewable(mimeType: string, name: string): boolean {
+  // Images
+  if (mimeType.startsWith('image/')) return true;
+  // PDFs
+  if (mimeType === 'application/pdf') return true;
+  // Text files
+  if (mimeType.startsWith('text/')) return true;
+  // JSON, JS, XML
+  if (['application/json', 'application/javascript', 'application/xml', 'application/typescript'].includes(mimeType)) return true;
+  // Check by extension
+  const ext = name.split('.').pop()?.toLowerCase() || '';
+  return PREVIEWABLE_EXTENSIONS.includes(ext);
+}
+
 export function FileRow({
   item,
   isSelected,
@@ -27,7 +47,7 @@ export function FileRow({
   onMove,
 }: FileRowProps) {
   const isDirectory = item.mimeType === 'inode/directory';
-  const isPreviewable = item.mimeType.startsWith('text/') || item.mimeType === 'application/json';
+  const isPreviewable = isFilePreviewable(item.mimeType, item.name);
 
   return (
     <tr
