@@ -6,14 +6,22 @@ interface UseFileOperationsOptions {
   currentPath: string;
   onFolderCreated?: () => void;
   onDeleted?: () => void;
+  onCopied?: () => void;
+  onMoved?: () => void;
   onUploadError?: (error: Error) => void;
+  onCopyError?: (error: Error) => void;
+  onMoveError?: (error: Error) => void;
 }
 
 export function useFileOperations({
   currentPath,
   onFolderCreated,
   onDeleted,
+  onCopied,
+  onMoved,
   onUploadError,
+  onCopyError,
+  onMoveError,
 }: UseFileOperationsOptions) {
   const queryClient = useQueryClient();
 
@@ -55,6 +63,40 @@ export function useFileOperations({
     },
   });
 
+  const copyMutation = useMutation({
+    mutationFn: ({ item, destPath }: { item: FsNode; destPath: string }) => {
+      if (item.mimeType === 'inode/directory') {
+        return fsApi.copyDirectory(item.path, destPath);
+      }
+      return fsApi.copyFile(item.path, destPath);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fs', 'list'] });
+      onCopied?.();
+    },
+    onError: (error: Error) => {
+      console.error('Copy failed:', error);
+      onCopyError?.(error);
+    },
+  });
+
+  const moveMutation = useMutation({
+    mutationFn: ({ item, destPath }: { item: FsNode; destPath: string }) => {
+      if (item.mimeType === 'inode/directory') {
+        return fsApi.moveDirectory(item.path, destPath);
+      }
+      return fsApi.moveFile(item.path, destPath);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fs', 'list'] });
+      onMoved?.();
+    },
+    onError: (error: Error) => {
+      console.error('Move failed:', error);
+      onMoveError?.(error);
+    },
+  });
+
   return {
     createFolder: createFolderMutation.mutate,
     isCreatingFolder: createFolderMutation.isPending,
@@ -62,5 +104,9 @@ export function useFileOperations({
     isDeleting: deleteMutation.isPending,
     uploadFile: uploadMutation.mutate,
     isUploading: uploadMutation.isPending,
+    copyItem: copyMutation.mutate,
+    isCopying: copyMutation.isPending,
+    moveItem: moveMutation.mutate,
+    isMoving: moveMutation.isPending,
   };
 }

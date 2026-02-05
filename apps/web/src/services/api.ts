@@ -64,6 +64,16 @@ export const fsApi = {
     await api.delete('/fs/directory', { params: { path } });
   },
 
+  copyDirectory: async (from: string, to: string): Promise<FsNode> => {
+    const { data } = await api.post('/fs/directory/copy', { from, to });
+    return data;
+  },
+
+  moveDirectory: async (from: string, to: string): Promise<FsNode> => {
+    const { data } = await api.post('/fs/directory/move', { from, to });
+    return data;
+  },
+
   uploadFile: async (path: string, file: File): Promise<FsNode> => {
     const formData = new FormData();
     formData.append('file', file);

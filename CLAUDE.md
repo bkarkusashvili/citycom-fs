@@ -175,8 +175,8 @@ citycom-fs/
 | POST | `/api/fs/directory` | Create directory |
 | DELETE | `/api/fs/directory?path=` | Delete directory (recursive) |
 | GET | `/api/fs/list?path=` | List contents |
-| POST | `/api/fs/directory/copy` | Copy directory **[NOT IMPLEMENTED]** |
-| POST | `/api/fs/directory/move` | Move directory **[NOT IMPLEMENTED]** |
+| POST | `/api/fs/directory/copy` | Copy directory |
+| POST | `/api/fs/directory/move` | Move directory |
 
 ### File Operations
 | Method | Endpoint | Description |
