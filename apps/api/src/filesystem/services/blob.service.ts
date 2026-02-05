@@ -1,9 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma.service';
+import { StorageProvider, STORAGE_PROVIDER } from './storage';
 import * as crypto from 'crypto';
 import * as path from 'path';
-import * as fs from 'fs/promises';
 
 export interface BlobInfo {
   id: string;
@@ -15,13 +14,12 @@ export interface BlobInfo {
 @Injectable()
 export class BlobService {
   private readonly logger = new Logger(BlobService.name);
-  private readonly blobBasePath: string;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    @Inject(STORAGE_PROVIDER) private readonly storageProvider: StorageProvider,
   ) {
-    this.blobBasePath = configService.get('BLOB_STORAGE_PATH', './data/blobs');
+    this.logger.log(`BlobService initialized with ${storageProvider.constructor.name}`);
   }
 
   async storeContent(content: Buffer): Promise<BlobInfo> {
@@ -40,22 +38,19 @@ export class BlobService {
       });
       this.logger.debug({ message: 'Blob deduplicated', contentHash, refCount: blob.referenceCount });
     } else {
-      // Store new blob
-      const subDir = contentHash.substring(0, 2);
-      const storagePath = path.join(this.blobBasePath, subDir, contentHash);
-
-      await fs.mkdir(path.dirname(storagePath), { recursive: true });
-      await fs.writeFile(storagePath, content);
+      // Store new blob using the storage provider
+      const storagePath = await this.storageProvider.store(contentHash, content);
+      const storageProviderType = this.storageProvider.constructor.name.includes('S3') ? 's3' : 'local';
 
       blob = await this.prisma.blob.create({
         data: {
           contentHash,
           size: content.length,
-          storageProvider: 'local',
+          storageProvider: storageProviderType,
           storagePath,
         },
       });
-      this.logger.debug({ message: 'Blob stored', contentHash, size: content.length });
+      this.logger.debug({ message: 'Blob stored', contentHash, size: content.length, provider: storageProviderType });
     }
 
     return {
@@ -75,7 +70,7 @@ export class BlobService {
       throw new Error(`Blob not found: ${blobId}`);
     }
 
-    return fs.readFile(blob.storagePath);
+    return this.storageProvider.read(blob.storagePath);
   }
 
   async incrementReference(blobId: string): Promise<void> {
@@ -93,11 +88,7 @@ export class BlobService {
 
     if (blob.referenceCount <= 0) {
       this.logger.log({ message: 'Deleting orphan blob', blobId, contentHash: blob.contentHash });
-      try {
-        await fs.unlink(blob.storagePath);
-      } catch (e) {
-        // Ignore if file doesn't exist
-      }
+      await this.storageProvider.delete(blob.storagePath);
       await this.prisma.blob.delete({ where: { id: blobId } });
     }
   }
