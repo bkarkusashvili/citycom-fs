@@ -1,6 +1,11 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma.service';
-import { StorageProvider, STORAGE_PROVIDER } from './storage';
+import {
+  StorageProvider,
+  STORAGE_PROVIDER,
+  LOCAL_STORAGE_PROVIDER,
+  S3_STORAGE_PROVIDER,
+} from './storage';
 import * as crypto from 'crypto';
 import * as path from 'path';
 
@@ -18,8 +23,17 @@ export class BlobService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STORAGE_PROVIDER) private readonly storageProvider: StorageProvider,
+    @Inject(LOCAL_STORAGE_PROVIDER) private readonly localProvider: StorageProvider,
+    @Optional() @Inject(S3_STORAGE_PROVIDER) private readonly s3Provider: StorageProvider | null,
   ) {
     this.logger.log(`BlobService initialized with ${storageProvider.constructor.name}`);
+  }
+
+  private getProviderForBlob(storageProviderType: string): StorageProvider {
+    if (storageProviderType === 's3' && this.s3Provider) {
+      return this.s3Provider;
+    }
+    return this.localProvider;
   }
 
   async storeContent(content: Buffer): Promise<BlobInfo> {
@@ -70,7 +84,9 @@ export class BlobService {
       throw new Error(`Blob not found: ${blobId}`);
     }
 
-    return this.storageProvider.read(blob.storagePath);
+    // Use the provider that matches where the blob is stored
+    const provider = this.getProviderForBlob(blob.storageProvider);
+    return provider.read(blob.storagePath);
   }
 
   async incrementReference(blobId: string): Promise<void> {
@@ -88,7 +104,8 @@ export class BlobService {
 
     if (blob.referenceCount <= 0) {
       this.logger.log({ message: 'Deleting orphan blob', blobId, contentHash: blob.contentHash });
-      await this.storageProvider.delete(blob.storagePath);
+      const provider = this.getProviderForBlob(blob.storageProvider);
+      await provider.delete(blob.storagePath);
       await this.prisma.blob.delete({ where: { id: blobId } });
     }
   }

@@ -24,3 +24,5 @@ export interface StorageProvider {
 }
 
 export const STORAGE_PROVIDER = 'STORAGE_PROVIDER';
+export const LOCAL_STORAGE_PROVIDER = 'LOCAL_STORAGE_PROVIDER';
+export const S3_STORAGE_PROVIDER = 'S3_STORAGE_PROVIDER';

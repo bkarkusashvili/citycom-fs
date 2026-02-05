@@ -5,6 +5,8 @@ import { FilesystemService } from './filesystem.service';
 import { DirectoryService, FileService, BlobService } from './services';
 import {
   STORAGE_PROVIDER,
+  LOCAL_STORAGE_PROVIDER,
+  S3_STORAGE_PROVIDER,
   LocalStorageProvider,
   S3StorageProvider,
 } from './services/storage';
@@ -14,7 +16,19 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule, ConfigModule],
   controllers: [FilesystemController],
   providers: [
-    // Storage provider - switch based on STORAGE_PROVIDER env var
+    // Local storage provider (always available for reading legacy blobs)
+    {
+      provide: LOCAL_STORAGE_PROVIDER,
+      useFactory: (configService: ConfigService) => new LocalStorageProvider(configService),
+      inject: [ConfigService],
+    },
+    // S3 storage provider (always available for reading S3 blobs)
+    {
+      provide: S3_STORAGE_PROVIDER,
+      useFactory: (configService: ConfigService) => new S3StorageProvider(configService),
+      inject: [ConfigService],
+    },
+    // Primary storage provider - switch based on STORAGE_PROVIDER env var
     {
       provide: STORAGE_PROVIDER,
       useFactory: (configService: ConfigService) => {
