@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../infrastructure/prisma.service';
 import * as crypto from 'crypto';
@@ -17,6 +17,7 @@ export interface FsNodeData {
 
 @Injectable()
 export class FilesystemService {
+  private readonly logger = new Logger(FilesystemService.name);
   private readonly blobBasePath: string;
 
   constructor(
@@ -46,6 +47,7 @@ export class FilesystemService {
 
   async createDirectory(tenantId: string, dirPath: string): Promise<FsNodeData> {
     const normalized = this.normalizePath(dirPath);
+    this.logger.log({ message: 'Creating directory', tenantId, path: normalized });
 
     // Check if already exists
     const existing = await this.prisma.fsNode.findUnique({
@@ -98,6 +100,7 @@ export class FilesystemService {
 
   async deleteDirectory(tenantId: string, dirPath: string): Promise<void> {
     const normalized = this.normalizePath(dirPath);
+    this.logger.log({ message: 'Deleting directory', tenantId, path: normalized });
 
     if (normalized === '/') {
       throw new BadRequestException('Cannot delete root directory');
@@ -202,6 +205,7 @@ export class FilesystemService {
     const normalized = this.normalizePath(filePath);
     const fileName = path.basename(normalized);
     const parentPath = this.getParentPath(normalized);
+    this.logger.log({ message: 'Writing file', tenantId, path: normalized, size: content.length });
 
     // Ensure parent directory exists
     let parentId: string | null = null;
@@ -318,6 +322,7 @@ export class FilesystemService {
 
   async deleteFile(tenantId: string, filePath: string): Promise<void> {
     const normalized = this.normalizePath(filePath);
+    this.logger.log({ message: 'Deleting file', tenantId, path: normalized });
 
     const file = await this.prisma.fsNode.findUnique({
       where: { tenantId_path: { tenantId, path: normalized } },
@@ -341,6 +346,7 @@ export class FilesystemService {
   async copyFile(tenantId: string, sourcePath: string, destPath: string): Promise<FsNodeData> {
     const normalizedSource = this.normalizePath(sourcePath);
     const normalizedDest = this.normalizePath(destPath);
+    this.logger.log({ message: 'Copying file', tenantId, from: normalizedSource, to: normalizedDest });
 
     const sourceFile = await this.prisma.fsNode.findUnique({
       where: { tenantId_path: { tenantId, path: normalizedSource } },
@@ -403,6 +409,7 @@ export class FilesystemService {
   async moveFile(tenantId: string, sourcePath: string, destPath: string): Promise<FsNodeData> {
     const normalizedSource = this.normalizePath(sourcePath);
     const normalizedDest = this.normalizePath(destPath);
+    this.logger.log({ message: 'Moving file', tenantId, from: normalizedSource, to: normalizedDest });
 
     const sourceFile = await this.prisma.fsNode.findUnique({
       where: { tenantId_path: { tenantId, path: normalizedSource } },
@@ -483,6 +490,7 @@ export class FilesystemService {
   ): Promise<FsNodeData> {
     const normalizedSource = this.normalizePath(sourcePath);
     const normalizedDest = this.normalizePath(destPath);
+    this.logger.log({ message: 'Copying directory', tenantId, from: normalizedSource, to: normalizedDest });
 
     // Validate source exists and is a directory
     const sourceDir = await this.prisma.fsNode.findUnique({
@@ -578,6 +586,7 @@ export class FilesystemService {
   ): Promise<FsNodeData> {
     const normalizedSource = this.normalizePath(sourcePath);
     const normalizedDest = this.normalizePath(destPath);
+    this.logger.log({ message: 'Moving directory', tenantId, from: normalizedSource, to: normalizedDest });
 
     // Cannot move root
     if (normalizedSource === '/') {

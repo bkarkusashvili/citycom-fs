@@ -22,3 +22,14 @@ export interface ApiError {
   message: string;
   statusCode: number;
 }
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  hasMore: boolean;
+  nextCursor?: string;
+}
+
+export interface ListDirectoryOptions {
+  limit?: number;
+  cursor?: string;
+}

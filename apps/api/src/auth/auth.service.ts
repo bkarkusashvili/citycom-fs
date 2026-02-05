@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -24,18 +25,23 @@ export interface AuthResponse {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
+    this.logger.log({ message: 'User registration attempt', email: dto.email.toLowerCase() });
+
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
 
     if (existingUser) {
+      this.logger.warn({ message: 'Registration failed - email exists', email: dto.email.toLowerCase() });
       throw new ConflictException('User with this email already exists');
     }
 
@@ -54,6 +60,8 @@ export class AuthService {
     // Generate token
     const token = this.generateToken(user.id, user.email);
 
+    this.logger.log({ message: 'User registered successfully', userId: user.id, email: user.email });
+
     return {
       accessToken: token,
       user: {
@@ -64,20 +72,25 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
+    this.logger.log({ message: 'Login attempt', email: dto.email.toLowerCase() });
+
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
 
     if (!user) {
+      this.logger.warn({ message: 'Login failed - user not found', email: dto.email.toLowerCase() });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isPasswordValid) {
+      this.logger.warn({ message: 'Login failed - invalid password', email: dto.email.toLowerCase() });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const token = this.generateToken(user.id, user.email);
+    this.logger.log({ message: 'Login successful', userId: user.id, email: user.email });
 
     return {
       accessToken: token,

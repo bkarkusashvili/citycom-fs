@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AuthResponse, FsNode } from '../types';
+import type { AuthResponse, FsNode, PaginatedResponse, ListDirectoryOptions } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -44,8 +44,14 @@ export const authApi = {
 
 // Filesystem API
 export const fsApi = {
-  listDirectory: async (path: string = '/'): Promise<FsNode[]> => {
-    const { data } = await api.get('/fs/list', { params: { path } });
+  listDirectory: async (
+    path: string = '/',
+    options: ListDirectoryOptions = {},
+  ): Promise<PaginatedResponse<FsNode>> => {
+    const { limit = 100, cursor } = options;
+    const { data } = await api.get('/fs/list', {
+      params: { path, limit, cursor },
+    });
     return data;
   },
 

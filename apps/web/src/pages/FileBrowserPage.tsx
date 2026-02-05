@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Folder,
   File,
@@ -11,6 +11,7 @@ import {
   LogOut,
   Eye,
   X,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { fsApi } from '../services/api';
@@ -48,11 +49,25 @@ export default function FileBrowserPage() {
   const [newFolderName, setNewFolderName] = useState('');
   const [previewFile, setPreviewFile] = useState<{ path: string; content: string } | null>(null);
 
-  // Fetch directory contents
-  const { data: items = [], isLoading, error } = useQuery({
+  // Fetch directory contents with pagination
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['fs', 'list', currentPath],
-    queryFn: () => fsApi.listDirectory(currentPath),
+    queryFn: ({ pageParam }) =>
+      fsApi.listDirectory(currentPath, { limit: 50, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? lastPage.nextCursor : undefined,
   });
+
+  // Flatten paginated items
+  const items: FsNode[] = data?.pages.flatMap((page) => page.items) ?? [];
 
   // Mutations
   const createFolderMutation = useMutation({
@@ -250,88 +265,108 @@ export default function FileBrowserPage() {
           ) : items.length === 0 ? (
             <div className="p-8 text-center text-gray-500">This folder is empty</div>
           ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Name</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Size</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Modified</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {items.map((item) => (
-                  <tr
-                    key={item.path}
-                    onClick={() => handleItemClick(item)}
-                    onDoubleClick={() => handleItemDoubleClick(item)}
-                    className={clsx(
-                      'cursor-pointer hover:bg-gray-50',
-                      selectedItems.has(item.path) && 'bg-blue-50',
-                    )}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {item.mimeType === 'inode/directory' ? (
-                          <Folder size={20} className="text-yellow-500" />
-                        ) : (
-                          <File size={20} className="text-gray-400" />
-                        )}
-                        <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {formatSize(item.size)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {formatDate(item.updatedAt)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {item.mimeType !== 'inode/directory' && (
-                          <>
-                            {(item.mimeType.startsWith('text/') || item.mimeType === 'application/json') && (
+            <>
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Name</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Size</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Modified</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {items.map((item) => (
+                    <tr
+                      key={item.path}
+                      onClick={() => handleItemClick(item)}
+                      onDoubleClick={() => handleItemDoubleClick(item)}
+                      className={clsx(
+                        'cursor-pointer hover:bg-gray-50',
+                        selectedItems.has(item.path) && 'bg-blue-50',
+                      )}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {item.mimeType === 'inode/directory' ? (
+                            <Folder size={20} className="text-yellow-500" />
+                          ) : (
+                            <File size={20} className="text-gray-400" />
+                          )}
+                          <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {formatSize(item.size)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {formatDate(item.updatedAt)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {item.mimeType !== 'inode/directory' && (
+                            <>
+                              {(item.mimeType.startsWith('text/') || item.mimeType === 'application/json') && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleItemDoubleClick(item);
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                  title="Preview"
+                                >
+                                  <Eye size={16} className="text-gray-500" />
+                                </button>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleItemDoubleClick(item);
+                                  handleDownload(item);
                                 }}
                                 className="p-1 hover:bg-gray-100 rounded"
-                                title="Preview"
+                                title="Download"
                               >
-                                <Eye size={16} className="text-gray-500" />
+                                <Download size={16} className="text-gray-500" />
                               </button>
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownload(item);
-                              }}
-                              className="p-1 hover:bg-gray-100 rounded"
-                              title="Download"
-                            >
-                              <Download size={16} className="text-gray-500" />
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`Delete ${item.name}?`)) {
-                              deleteMutation.mutate([item]);
-                            }
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} className="text-red-500" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                            </>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`Delete ${item.name}?`)) {
+                                deleteMutation.mutate([item]);
+                              }
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} className="text-red-500" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {hasNextPage && (
+                <div className="p-4 border-t text-center">
+                  <button
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm font-medium disabled:opacity-50 flex items-center gap-2 mx-auto"
+                  >
+                    {isFetchingNextPage ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Load More'
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
