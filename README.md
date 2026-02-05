@@ -63,15 +63,41 @@ citycom-fs/
 
 ## Quick Start
 
-### Prerequisites
+### Option 1: Docker (Recommended)
+
+Run the entire stack with one command:
+
+```bash
+# Build and start all services
+docker-compose up -d --build
+
+# Run database migrations (first time only)
+docker exec citycom-api npx prisma migrate deploy
+
+# View logs
+docker-compose logs -f
+```
+
+**Access the application:**
+- Frontend: http://localhost
+- API: http://localhost:3000
+- API Docs: http://localhost:3000/api/docs
+
+**Stop the services:**
+```bash
+docker-compose down
+```
+
+### Option 2: Local Development
+
+#### Prerequisites
 
 - Node.js 18+
-- Docker & Docker Compose
-- PostgreSQL (or use Docker)
+- Docker (for PostgreSQL)
 
-### Setup
+#### Setup
 
-1. **Clone and install dependencies**:
+1. **Install dependencies**:
    ```bash
    cd citycom-fs
    npm install

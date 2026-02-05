@@ -1,6 +1,5 @@
-version: '3.8'
-
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: citycom-postgres
@@ -17,6 +16,46 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - citycom-network
+
+  # NestJS API
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: citycom-api
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/citycom_fs?schema=public
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+      CORS_ORIGIN: http://localhost
+      BLOB_STORAGE_PATH: ./data/blobs
+    ports:
+      - "3000:3000"
+    volumes:
+      - blob_data:/app/apps/api/data/blobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - citycom-network
+    restart: unless-stopped
+
+  # React Frontend
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: citycom-web
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - citycom-network
+    restart: unless-stopped
 
   # Optional: MinIO for S3-compatible storage
   minio:
@@ -31,7 +70,16 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+    networks:
+      - citycom-network
+    profiles:
+      - s3  # Only start with: docker-compose --profile s3 up
 
 volumes:
   postgres_data:
+  blob_data:
   minio_data:
+
+networks:
+  citycom-network:
+    driver: bridge
