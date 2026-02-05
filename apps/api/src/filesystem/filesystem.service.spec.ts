@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FilesystemService } from './filesystem.service';
+import { DirectoryService, FileService, BlobService } from './services';
 import { PrismaService } from '../infrastructure/prisma.service';
 
 // Mock fs/promises
@@ -14,7 +15,6 @@ jest.mock('fs/promises', () => ({
 
 describe('FilesystemService', () => {
   let service: FilesystemService;
-  let prismaService: PrismaService;
 
   const tenantId = 'tenant-123';
 
@@ -43,13 +43,15 @@ describe('FilesystemService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FilesystemService,
+        DirectoryService,
+        FileService,
+        BlobService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
     service = module.get<FilesystemService>(FilesystemService);
-    prismaService = module.get<PrismaService>(PrismaService);
 
     jest.clearAllMocks();
   });
