@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  fsNodes FsNode[]
+
+  @@map("users")
+}
+
+model FsNode {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  path      String
+  type      String   // 'file' | 'directory'
+  parentId  String?  @map("parent_id")
+  blobId    String?  @map("blob_id")
+  size      BigInt   @default(0)
+  mimeType  String   @default("application/octet-stream") @map("mime_type")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant User  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent FsNode?  @relation("FsNodeParent", fields: [parentId], references: [id], onDelete: Cascade)
+  children FsNode[] @relation("FsNodeParent")
+  blob   Blob? @relation(fields: [blobId], references: [id])
+
+  @@unique([tenantId, path])
+  @@index([tenantId, parentId])
+  @@index([tenantId, path])
+  @@map("fs_nodes")
+}
+
+model Blob {
+  id             String   @id @default(uuid())
+  contentHash    String   @unique @map("content_hash")
+  size           BigInt
+  storageProvider String  @map("storage_provider") // 'local' | 's3' | 'db'
+  storagePath    String   @map("storage_path")
+  referenceCount Int      @default(1) @map("reference_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  files FsNode[]
+
+  @@index([contentHash])
+  @@map("blobs")
+}
