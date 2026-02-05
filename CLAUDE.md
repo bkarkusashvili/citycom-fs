@@ -309,6 +309,53 @@ BLOB_STORAGE_PATH=./data/blobs
 
 ---
 
+## Large Files Analysis
+
+Files over 200 lines that should be refactored:
+
+### 1. `apps/api/src/filesystem/filesystem.service.ts` (724 lines) - HIGH PRIORITY
+
+**Problem**: Monolithic service handling all filesystem operations
+**Solution**: Split into focused services
+
+| New File | Lines | Methods |
+|----------|-------|---------|
+| `directory.service.ts` | ~200 | `createDirectory`, `deleteDirectory`, `listDirectory`, `copyDirectory`, `moveDirectory` |
+| `file.service.ts` | ~180 | `writeFile`, `readFile`, `deleteFile`, `copyFile`, `moveFile` |
+| `blob.service.ts` | ~120 | `storeBlobContent`, `decrementBlobRef`, `getMimeType`, blob cleanup |
+| `filesystem.service.ts` | ~100 | Facade composing above + `exists`, `getInfo`, path utilities |
+
+### 2. `packages/fs-provider/src/application/services/FsProviderService.ts` (527 lines)
+
+**Problem**: Similar monolithic pattern in core library
+**Solution**: Apply same split pattern with DDD boundaries
+
+### 3. `apps/web/src/pages/FileBrowserPage.tsx` (427 lines)
+
+**Problem**: Large React component with mixed concerns
+**Solution**: Extract reusable components
+
+| Component | Purpose |
+|-----------|---------|
+| `FileTable.tsx` | Table rendering with columns |
+| `FileRow.tsx` | Single file/folder row |
+| `Breadcrumb.tsx` | Path navigation |
+| `NewFolderModal.tsx` | Folder creation dialog |
+| `FilePreviewModal.tsx` | File content preview |
+| `useFileOperations.ts` | Custom hook for mutations |
+
+### 4. Other Notable Files
+
+| File | Lines | Status |
+|------|-------|--------|
+| `filesystem.service.spec.ts` | 370 | OK - test file, can be large |
+| `app.e2e-spec.ts` | 371 | OK - test file |
+| `filesystem.controller.spec.ts` | 221 | OK - test file |
+| `filesystem.controller.ts` | 209 | OK - acceptable size |
+| `InMemoryFsNodeRepository.ts` | 181 | OK - single responsibility |
+
+---
+
 ## When Making Changes
 
 1. **Before coding**: Check requirements in [01-requirements-compliance.md](docs/project-analysis/01-requirements-compliance.md)
@@ -335,15 +382,19 @@ BLOB_STORAGE_PATH=./data/blobs
 9. [x] Set up CI/CD (GitHub Actions)
 10. [x] Update frontend for pagination support
 
-### Phase 3: Code Quality
-11. [ ] Split filesystem.service.ts into smaller modules
-12. [ ] Add frontend tests
-13. [ ] Add security headers
+### Phase 3: Code Quality (Refactoring Large Files)
+11. [ ] Split `filesystem.service.ts` (724 lines) → directory.service.ts, file.service.ts, blob.service.ts
+12. [ ] Split `FsProviderService.ts` (527 lines) → separate directory/file services
+13. [ ] Split `FileBrowserPage.tsx` (427 lines) → extract components
+14. [ ] Add security headers (helmet middleware)
+15. [ ] Add frontend tests (React Testing Library)
 
 ### Phase 4: Enhancements
-14. [ ] Expand file preview (images, PDF)
-15. [ ] Add caching layer
-16. [ ] Add health check endpoint
+16. [ ] Expand file preview (images, PDF)
+17. [ ] Add caching layer (Redis)
+18. [ ] Add health check endpoint (`/health`)
+19. [ ] Add metrics/monitoring (Prometheus)
+20. [ ] Add drag-and-drop file upload
 
 ---
 
