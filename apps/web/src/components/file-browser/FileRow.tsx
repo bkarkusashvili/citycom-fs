@@ -1,4 +1,4 @@
-import { Folder, File, Eye, Download, Trash2, Copy, Move } from 'lucide-react';
+import { Folder, File, Eye, Download, Trash2, Copy, Move, History } from 'lucide-react';
 import clsx from 'clsx';
 import type { FsNode } from '../../types';
 import { formatSize, formatDate } from '../../utils/format';
@@ -13,6 +13,7 @@ interface FileRowProps {
   onDelete: () => void;
   onCopy: () => void;
   onMove: () => void;
+  onVersions: () => void;
 }
 
 const PREVIEWABLE_EXTENSIONS = [
@@ -45,6 +46,7 @@ export function FileRow({
   onDelete,
   onCopy,
   onMove,
+  onVersions,
 }: FileRowProps) {
   const isDirectory = item.mimeType === 'inode/directory';
   const isPreviewable = isFilePreviewable(item.mimeType, item.name);
@@ -95,6 +97,16 @@ export function FileRow({
                 title="Download"
               >
                 <Download size={16} className="text-gray-500" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVersions();
+                }}
+                className="p-1 hover:bg-gray-100 rounded"
+                title="Version History"
+              >
+                <History size={16} className="text-blue-500" />
               </button>
             </>
           )}

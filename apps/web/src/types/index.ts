@@ -33,3 +33,11 @@ export interface ListDirectoryOptions {
   limit?: number;
   cursor?: string;
 }
+
+export interface FileVersion {
+  id: string;
+  version: number;
+  size: number;
+  createdAt: string;
+  createdBy: string;
+}

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AuthResponse, FsNode, PaginatedResponse, ListDirectoryOptions } from '../types';
+import type { AuthResponse, FsNode, PaginatedResponse, ListDirectoryOptions, FileVersion } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -114,6 +114,24 @@ export const fsApi = {
   getInfo: async (path: string): Promise<FsNode> => {
     const { data } = await api.get('/fs/info', { params: { path } });
     return data;
+  },
+
+  // Version operations
+  listVersions: async (path: string): Promise<FileVersion[]> => {
+    const { data } = await api.get('/fs/versions', { params: { path } });
+    return data;
+  },
+
+  downloadVersion: async (path: string, version: number): Promise<Blob> => {
+    const { data } = await api.get('/fs/versions/download', {
+      params: { path, version },
+      responseType: 'blob',
+    });
+    return data;
+  },
+
+  restoreVersion: async (path: string, version: number): Promise<void> => {
+    await api.post('/fs/versions/restore', {}, { params: { path, version } });
   },
 };
 

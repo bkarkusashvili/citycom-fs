@@ -18,7 +18,7 @@ This document identifies missing features, gaps in implementation, and provides 
 | ~~🟡 Medium~~ | ~~No security headers~~ | ~~Security gap~~ | ✅ Done (Helmet) |
 | ~~🟢 Low~~ | ~~Limited file preview~~ | ~~UX gap~~ | ✅ Done (images, code) |
 | ~~🟢 Low~~ | ~~No caching~~ | ~~Performance~~ | ✅ Done |
-| 🟢 Low | No file versioning | Feature gap | Pending |
+| ~~🟢 Low~~ | ~~No file versioning~~ | ~~Feature gap~~ | ✅ Done |
 | ~~🟢 Low~~ | ~~Directory copy/move UI~~ | ~~UX gap~~ | ✅ Done |
 | ~~🟢 Low~~ | ~~No health endpoint~~ | ~~Operations~~ | ✅ Done |
 | 🟢 Low | No metrics/monitoring | Operations | Pending |

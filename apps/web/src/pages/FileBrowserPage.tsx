@@ -11,6 +11,7 @@ import {
   Header,
   NewFolderModal,
   Toolbar,
+  VersionHistoryModal,
 } from '../components/file-browser';
 import type { FsNode } from '../types';
 
@@ -31,6 +32,7 @@ export default function FileBrowserPage() {
     mode: 'copy' | 'move';
     item: FsNode | null;
   }>({ isOpen: false, mode: 'copy', item: null });
+  const [versionHistoryFile, setVersionHistoryFile] = useState<FsNode | null>(null);
 
   // Fetch directory contents with pagination
   const {
@@ -197,6 +199,10 @@ export default function FileBrowserPage() {
     setCopyMoveModal({ isOpen: true, mode: 'move', item });
   };
 
+  const handleVersions = (item: FsNode) => {
+    setVersionHistoryFile(item);
+  };
+
   const handleCopyMoveConfirm = (destPath: string) => {
     if (!copyMoveModal.item) return;
     const destFullPath =
@@ -240,6 +246,7 @@ export default function FileBrowserPage() {
             onDelete={handleDeleteSingle}
             onCopy={handleCopy}
             onMove={handleMove}
+            onVersions={handleVersions}
             onLoadMore={fetchNextPage}
           />
         </div>
@@ -275,6 +282,18 @@ export default function FileBrowserPage() {
         onClose={() => setCopyMoveModal({ isOpen: false, mode: 'copy', item: null })}
         onSelect={handleCopyMoveConfirm}
       />
+
+      {versionHistoryFile && (
+        <VersionHistoryModal
+          filePath={versionHistoryFile.path}
+          fileName={versionHistoryFile.name}
+          onClose={() => setVersionHistoryFile(null)}
+          onRestore={() => {
+            // Refresh the file list after restore
+            setVersionHistoryFile(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -6,3 +6,4 @@ export { FileTable } from './FileTable';
 export { Header } from './Header';
 export { NewFolderModal } from './NewFolderModal';
 export { Toolbar } from './Toolbar';
+export { VersionHistoryModal } from './VersionHistoryModal';
