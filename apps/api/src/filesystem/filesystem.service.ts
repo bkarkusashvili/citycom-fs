@@ -143,8 +143,13 @@ export class FilesystemService {
     });
   }
 
-  async listDirectory(tenantId: string, dirPath: string): Promise<FsNodeData[]> {
+  async listDirectory(
+    tenantId: string,
+    dirPath: string,
+    options: { limit?: number; cursor?: string } = {},
+  ): Promise<{ items: FsNodeData[]; nextCursor?: string; hasMore: boolean }> {
     const normalized = this.normalizePath(dirPath);
+    const limit = options.limit ?? 100;
 
     if (normalized !== '/') {
       const directory = await this.prisma.fsNode.findUnique({
@@ -166,12 +171,27 @@ export class FilesystemService {
           where: { tenantId_path: { tenantId, path: normalized } },
         }))?.id ?? null;
 
+    // Build where clause with cursor support
+    const whereClause: any = { tenantId, parentId };
+    if (options.cursor) {
+      whereClause.id = { gt: options.cursor };
+    }
+
     const children = await this.prisma.fsNode.findMany({
-      where: { tenantId, parentId },
-      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+      where: whereClause,
+      orderBy: [{ type: 'asc' }, { name: 'asc' }, { id: 'asc' }],
+      take: limit + 1, // Fetch one extra to check if there are more
     });
 
-    return children.map((node) => this.toFsNodeData(node, tenantId));
+    const hasMore = children.length > limit;
+    const items = hasMore ? children.slice(0, limit) : children;
+    const nextCursor = hasMore ? items[items.length - 1].id : undefined;
+
+    return {
+      items: items.map((node) => this.toFsNodeData(node, tenantId)),
+      nextCursor,
+      hasMore,
+    };
   }
 
   async writeFile(
@@ -454,6 +474,191 @@ export class FilesystemService {
     });
 
     return node !== null;
+  }
+
+  async copyDirectory(
+    tenantId: string,
+    sourcePath: string,
+    destPath: string,
+  ): Promise<FsNodeData> {
+    const normalizedSource = this.normalizePath(sourcePath);
+    const normalizedDest = this.normalizePath(destPath);
+
+    // Validate source exists and is a directory
+    const sourceDir = await this.prisma.fsNode.findUnique({
+      where: { tenantId_path: { tenantId, path: normalizedSource } },
+    });
+
+    if (!sourceDir) {
+      throw new NotFoundException('Source directory not found');
+    }
+
+    if (sourceDir.type !== 'directory') {
+      throw new BadRequestException('Source is not a directory');
+    }
+
+    // Prevent copying into itself
+    if (normalizedDest.startsWith(normalizedSource + '/') || normalizedDest === normalizedSource) {
+      throw new BadRequestException('Cannot copy directory into itself');
+    }
+
+    // Check destination doesn't already exist
+    const existingDest = await this.prisma.fsNode.findUnique({
+      where: { tenantId_path: { tenantId, path: normalizedDest } },
+    });
+
+    if (existingDest) {
+      throw new BadRequestException('Destination already exists');
+    }
+
+    // Create the destination directory
+    await this.createDirectory(tenantId, normalizedDest);
+
+    // Get all descendants of source directory
+    const descendants = await this.prisma.fsNode.findMany({
+      where: {
+        tenantId,
+        path: { startsWith: normalizedSource + '/' },
+      },
+      orderBy: { path: 'asc' },
+    });
+
+    // Copy each descendant
+    for (const node of descendants) {
+      const relativePath = node.path.substring(normalizedSource.length);
+      const newPath = normalizedDest + relativePath;
+
+      if (node.type === 'directory') {
+        await this.createDirectory(tenantId, newPath);
+      } else {
+        // Copy file - increment blob reference
+        if (node.blobId) {
+          await this.prisma.blob.update({
+            where: { id: node.blobId },
+            data: { referenceCount: { increment: 1 } },
+          });
+        }
+
+        // Get parent for the new file
+        const newParentPath = this.getParentPath(newPath);
+        let newParentId: string | null = null;
+        if (newParentPath && newParentPath !== '/') {
+          const parent = await this.prisma.fsNode.findUnique({
+            where: { tenantId_path: { tenantId, path: newParentPath } },
+          });
+          newParentId = parent?.id ?? null;
+        }
+
+        await this.prisma.fsNode.create({
+          data: {
+            tenantId,
+            name: node.name,
+            path: newPath,
+            type: 'file',
+            parentId: newParentId,
+            blobId: node.blobId,
+            size: node.size,
+            mimeType: node.mimeType,
+          },
+        });
+      }
+    }
+
+    const result = await this.prisma.fsNode.findUnique({
+      where: { tenantId_path: { tenantId, path: normalizedDest } },
+    });
+
+    return this.toFsNodeData(result!, tenantId);
+  }
+
+  async moveDirectory(
+    tenantId: string,
+    sourcePath: string,
+    destPath: string,
+  ): Promise<FsNodeData> {
+    const normalizedSource = this.normalizePath(sourcePath);
+    const normalizedDest = this.normalizePath(destPath);
+
+    // Cannot move root
+    if (normalizedSource === '/') {
+      throw new BadRequestException('Cannot move root directory');
+    }
+
+    // Validate source exists and is a directory
+    const sourceDir = await this.prisma.fsNode.findUnique({
+      where: { tenantId_path: { tenantId, path: normalizedSource } },
+    });
+
+    if (!sourceDir) {
+      throw new NotFoundException('Source directory not found');
+    }
+
+    if (sourceDir.type !== 'directory') {
+      throw new BadRequestException('Source is not a directory');
+    }
+
+    // Prevent moving into itself
+    if (normalizedDest.startsWith(normalizedSource + '/')) {
+      throw new BadRequestException('Cannot move directory into itself');
+    }
+
+    // Check destination doesn't already exist
+    const existingDest = await this.prisma.fsNode.findUnique({
+      where: { tenantId_path: { tenantId, path: normalizedDest } },
+    });
+
+    if (existingDest) {
+      throw new BadRequestException('Destination already exists');
+    }
+
+    // Find new parent for the moved directory
+    const destParentPath = this.getParentPath(normalizedDest);
+    let destParentId: string | null = null;
+
+    if (destParentPath && destParentPath !== '/') {
+      const destParent = await this.prisma.fsNode.findUnique({
+        where: { tenantId_path: { tenantId, path: destParentPath } },
+      });
+      if (!destParent) {
+        throw new NotFoundException('Destination parent directory not found');
+      }
+      if (destParent.type !== 'directory') {
+        throw new BadRequestException('Destination parent is not a directory');
+      }
+      destParentId = destParent.id;
+    }
+
+    // Update the source directory itself
+    await this.prisma.fsNode.update({
+      where: { id: sourceDir.id },
+      data: {
+        name: normalizedDest.split('/').pop() || '',
+        path: normalizedDest,
+        parentId: destParentId,
+      },
+    });
+
+    // Update all descendants' paths
+    const descendants = await this.prisma.fsNode.findMany({
+      where: {
+        tenantId,
+        path: { startsWith: normalizedSource + '/' },
+      },
+    });
+
+    for (const node of descendants) {
+      const newPath = normalizedDest + node.path.substring(normalizedSource.length);
+      await this.prisma.fsNode.update({
+        where: { id: node.id },
+        data: { path: newPath },
+      });
+    }
+
+    const result = await this.prisma.fsNode.findUnique({
+      where: { tenantId_path: { tenantId, path: normalizedDest } },
+    });
+
+    return this.toFsNodeData(result!, tenantId);
   }
 
   private async decrementBlobRef(blobId: string): Promise<void> {

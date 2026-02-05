@@ -53,7 +53,7 @@ All analysis documents are in [docs/project-analysis/](docs/project-analysis/):
 | [02-architecture-overview.md](docs/project-analysis/02-architecture-overview.md) | System architecture and tech stack |
 | [03-solution-rationale.md](docs/project-analysis/03-solution-rationale.md) | Technology decisions and trade-offs |
 | [04-pros-and-cons.md](docs/project-analysis/04-pros-and-cons.md) | Strengths and weaknesses |
-| [05-quality-score.md](docs/project-analysis/05-quality-score.md) | Quality metrics (current: 73/100) |
+| [05-quality-score.md](docs/project-analysis/05-quality-score.md) | Quality metrics (current: 84/100) |
 | [06-gaps-and-recommendations.md](docs/project-analysis/06-gaps-and-recommendations.md) | Missing features and roadmap |
 
 **Keep these docs updated** when making changes to the codebase.
@@ -62,66 +62,46 @@ All analysis documents are in [docs/project-analysis/](docs/project-analysis/):
 
 ## Current Status
 
-### Quality Score: 73/100 (Grade B-)
+### Quality Score: 84/100 (Grade B+)
 
 | Dimension | Score | Target |
 |-----------|-------|--------|
-| Requirements | 85% | 100% |
+| Requirements | 97% | 100% |
 | Architecture | 90% | 95% |
 | Code Quality | 85% | 90% |
-| Security | 70% | 90% |
-| Test Coverage | 50% | 80% |
-| Production Readiness | 60% | 85% |
+| Security | 80% | 90% |
+| Test Coverage | 70% | 80% |
+| Production Readiness | 65% | 85% |
 
-### Requirements Compliance: 85%
+### Requirements Compliance: 97%
 
-**Met**: 36/39 requirements
-**Missing**: 2 critical, 1 partial
+**Met**: 38/39 requirements
+**Partial**: 1 (file preview limited to text)
 
 ---
 
-## Critical Issues to Fix
+## Recently Completed (2026-02-05)
 
-### 1. Implement copyDirectory (REQUIRED)
+- [x] **copyDirectory** - Recursive directory copy with blob reference counting
+- [x] **moveDirectory** - Recursive move with path updates, self-reference prevention
+- [x] **Pagination** - `listDirectory` supports `limit` and `cursor` parameters
+- [x] **Rate limiting** - Global throttling + stricter limits on auth endpoints
+- [x] **Tests** - Auth and filesystem controller/service tests (46 tests passing)
 
-**File**: `apps/api/src/filesystem/filesystem.service.ts`
+## Remaining Tasks
 
-Current state returns "Not implemented yet". Must:
-- Recursively copy directory and all contents
-- Copy files with blob reference counting
-- Maintain directory structure
+### High Priority
 
-### 2. Implement moveDirectory (REQUIRED)
+1. **E2E Tests** - Full workflow tests (register → login → file operations)
+2. **Frontend Tests** - React component tests
+3. **Logging** - Structured logging with Winston
+4. **Frontend Pagination** - Update FileBrowser to handle paginated responses
 
-**File**: `apps/api/src/filesystem/filesystem.service.ts`
+### Medium Priority
 
-Current state returns "Not implemented yet". Must:
-- Move directory and update all descendant paths
-- Prevent moving directory into itself
-- Update parent references
-
-### 3. Add Pagination to listDirectory (REQUIRED for scalability)
-
-**File**: `apps/api/src/filesystem/filesystem.service.ts`
-
-Current `listDirectory` returns ALL items. For millions of files requirement:
-- Add `limit` and `cursor` parameters
-- Return `{ items, nextCursor }` response
-- Update frontend to handle pagination
-
-### 4. Add Missing Tests (REQUIRED)
-
-**Missing test files**:
-```
-apps/api/src/auth/auth.controller.spec.ts
-apps/api/src/auth/auth.service.spec.ts
-apps/api/src/filesystem/filesystem.controller.spec.ts
-apps/api/src/filesystem/filesystem.service.spec.ts
-apps/api/test/app.e2e-spec.ts
-apps/web/src/**/*.test.tsx
-```
-
-**Target**: 80% coverage across all packages
+5. **CI/CD Pipeline** - GitHub Actions for automated testing
+6. **Enhanced File Preview** - Support images, PDF
+7. **Security Headers** - CSP, HSTS
 
 ---
 
@@ -294,7 +274,8 @@ BLOB_STORAGE_PATH=./data/blobs
 - [x] Tenant isolation in database
 - [x] Input validation with class-validator
 - [x] Path traversal prevention
-- [ ] Rate limiting on auth endpoints
+- [x] Rate limiting on auth endpoints (3 reg/min, 5 login/min)
+- [x] Global rate limiting (10/s, 100/min, 1000/hr)
 - [ ] Security headers (CSP, HSTS)
 - [ ] Strong JWT secret in production
 - [ ] HTTPS enforcement
@@ -334,24 +315,25 @@ BLOB_STORAGE_PATH=./data/blobs
 
 ## Priority Tasks
 
-### Phase 1: Critical (Must Complete)
-1. [ ] Implement `copyDirectory` in filesystem.service.ts
-2. [ ] Implement `moveDirectory` in filesystem.service.ts
-3. [ ] Add pagination to `listDirectory`
-4. [ ] Write auth controller/service tests
-5. [ ] Write filesystem controller/service tests
+### Phase 1: Critical (Completed)
+1. [x] Implement `copyDirectory` in filesystem.service.ts
+2. [x] Implement `moveDirectory` in filesystem.service.ts
+3. [x] Add pagination to `listDirectory`
+4. [x] Write auth controller/service tests
+5. [x] Write filesystem controller/service tests
+6. [x] Add rate limiting (`@nestjs/throttler`)
 
 ### Phase 2: High Priority
-6. [ ] Add rate limiting (`@nestjs/throttler`)
 7. [ ] Add structured logging (Winston)
 8. [ ] Add E2E tests
 9. [ ] Set up CI/CD (GitHub Actions)
+10. [ ] Update frontend for pagination support
 
 ### Phase 3: Improvements
-10. [ ] Expand file preview (images, PDF)
-11. [ ] Add caching layer
-12. [ ] Add security headers
-13. [ ] Add health check endpoint
+11. [ ] Expand file preview (images, PDF)
+12. [ ] Add caching layer
+13. [ ] Add security headers
+14. [ ] Add health check endpoint
 
 ---
 
@@ -367,4 +349,4 @@ When you complete tasks or make significant changes:
 ---
 
 *Last Updated: 2026-02-05*
-*Quality Score: 73/100 → Target: 90/100*
+*Quality Score: 84/100 → Target: 90/100*

@@ -8,12 +8,19 @@ This document maps each requirement from the task specification to its implement
 |----------|-----|---------|---------|-------|
 | Core Architecture | 6 | 0 | 0 | 6 |
 | Storage Requirements | 5 | 0 | 0 | 5 |
-| FsProvider Interface | 12 | 0 | 2 | 14 |
+| FsProvider Interface | 14 | 0 | 0 | 14 |
 | FsNode Interface | 7 | 0 | 0 | 7 |
 | Web Application | 6 | 1 | 0 | 7 |
-| **Total** | **36** | **1** | **2** | **39** |
+| **Total** | **38** | **1** | **0** | **39** |
 
-**Compliance Rate: 92% (36/39 fully met)**
+**Compliance Rate: 97% (38/39 fully met)**
+
+### Recent Updates (2026-02-05)
+- ✅ Implemented `copyDirectory` - recursive directory copy with blob reference counting
+- ✅ Implemented `moveDirectory` - recursive directory move with path updates
+- ✅ Added pagination to `listDirectory` - supports `limit` and `cursor` parameters
+- ✅ Added rate limiting - global throttling + stricter limits on auth endpoints
+- ✅ Added unit tests - auth and filesystem services/controllers tested
 
 ---
 

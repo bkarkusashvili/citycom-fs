@@ -28,6 +28,7 @@ import {
   CreateDirectoryDto,
   CopyMoveDto,
   WriteFileDto,
+  ListDirectoryQueryDto,
 } from './dto/filesystem.dto';
 
 @ApiTags('filesystem')
@@ -59,32 +60,33 @@ export class FilesystemController {
   }
 
   @Post('directory/copy')
-  @ApiOperation({ summary: 'Copy a directory' })
+  @ApiOperation({ summary: 'Copy a directory recursively' })
   async copyDirectory(
     @CurrentUser() user: CurrentUserData,
     @Body() dto: CopyMoveDto,
   ) {
-    // For simplicity, we'll implement directory copy/move later
-    // This would require recursive copying
-    throw new Error('Not implemented yet');
+    return this.fsService.copyDirectory(user.id, dto.from, dto.to);
   }
 
   @Post('directory/move')
-  @ApiOperation({ summary: 'Move a directory' })
+  @ApiOperation({ summary: 'Move/rename a directory' })
   async moveDirectory(
     @CurrentUser() user: CurrentUserData,
     @Body() dto: CopyMoveDto,
   ) {
-    throw new Error('Not implemented yet');
+    return this.fsService.moveDirectory(user.id, dto.from, dto.to);
   }
 
   @Get('list')
-  @ApiOperation({ summary: 'List directory contents' })
+  @ApiOperation({ summary: 'List directory contents with pagination' })
   async listDirectory(
     @CurrentUser() user: CurrentUserData,
-    @Query('path') path: string = '/',
+    @Query() query: ListDirectoryQueryDto,
   ) {
-    return this.fsService.listDirectory(user.id, path);
+    return this.fsService.listDirectory(user.id, query.path ?? '/', {
+      limit: query.limit,
+      cursor: query.cursor,
+    });
   }
 
   // File operations
