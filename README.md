@@ -1,6 +1,21 @@
 # Citycom File System
 
-A multi-tenant blob store DB-based file system provider with Web API and React frontend.
+```
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║     ██████╗██╗████████╗██╗   ██╗ ██████╗ ██████╗ ███╗   ███╗    ║
+║    ██╔════╝██║╚══██╔══╝╚██╗ ██╔╝██╔════╝██╔═══██╗████╗ ████║    ║
+║    ██║     ██║   ██║    ╚████╔╝ ██║     ██║   ██║██╔████╔██║    ║
+║    ██║     ██║   ██║     ╚██╔╝  ██║     ██║   ██║██║╚██╔╝██║    ║
+║    ╚██████╗██║   ██║      ██║   ╚██████╗╚██████╔╝██║ ╚═╝ ██║    ║
+║     ╚═════╝╚═╝   ╚═╝      ╚═╝    ╚═════╝ ╚═════╝ ╚═╝     ╚═╝    ║
+║                                                                  ║
+║                    FILE SYSTEM                                   ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+```
+
+A production-ready, multi-tenant blob store database-based file system with pluggable storage backends.
 
 ## Features
 
@@ -8,31 +23,54 @@ A multi-tenant blob store DB-based file system provider with Web API and React f
 - **Web API**: NestJS REST API with JWT authentication
 - **Multi-tenant**: Each user has isolated access to their files
 - **Content Deduplication**: Same file content stored once via SHA-256 hashing
-- **Pluggable Storage**: Support for local filesystem, S3, and DB blob storage
-- **React Frontend**: File browser with upload, download, and preview
+- **Pluggable Storage**: Support for local filesystem, S3/MinIO, and DB blob storage
+- **Hybrid Storage**: Seamless reading from multiple storage backends (local + S3)
+- **File Versioning**: Automatic version history with restore capability
+- **React Frontend**: File browser with upload, download, preview, and version history
+
+## Key Highlights
+
+- **14 FsProvider methods** fully implemented
+- **Multi-tenant** with complete isolation
+- **Content-addressed deduplication** (SHA-256)
+- **Cursor-based pagination** for millions of files
+- **File versioning** with restore capability
+- **Rich file preview** (images, PDF, code, markdown)
+- **Rate limiting** and security headers
+- **Health endpoints** for Kubernetes
+- **Structured JSON logging**
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│            React Frontend                    │
-│    (File Browser, Auth, Preview)            │
-└─────────────────┬───────────────────────────┘
-                  │ REST API
-┌─────────────────▼───────────────────────────┐
-│            NestJS API                        │
-│   (Auth, Controllers, Middleware)           │
-└─────────────────┬───────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────┐
-│         FsProvider Service                   │
-│   (Domain Logic, Repositories)              │
-└──────────┬──────────────────┬───────────────┘
-           │                  │
-┌──────────▼──────┐  ┌───────▼────────────────┐
-│   PostgreSQL     │  │   Blob Storage         │
-│  (Metadata)      │  │ (Local/S3/DB)          │
-└─────────────────┘  └────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         CLIENT                                   │
+│            React + TypeScript + TailwindCSS                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ HTTPS + JWT
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       API LAYER                                  │
+│  NestJS │ Rate Limiting │ Helmet │ Validation │ Swagger          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      DOMAIN LAYER                                │
+│       FsProvider Interface │ Business Logic │ Services           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┴───────────────┐
+              │                               │
+              ▼                               ▼
+┌─────────────────────────┐     ┌─────────────────────────┐
+│      PostgreSQL         │     │      S3 / MinIO         │
+│   (File Metadata)       │     │   (Blob Storage)        │
+│   - FsNode tree         │     │   - Deduplicated        │
+│   - User accounts       │     │   - Content-addressed   │
+│   - File versions       │     │   - Scalable            │
+└─────────────────────────┘     └─────────────────────────┘
 ```
 
 ## Project Structure
@@ -151,6 +189,10 @@ docker-compose down
 - `POST /api/fs/file/move` - Move/rename file
 - `GET /api/fs/info?path=` - Get file/directory info
 
+### File Versioning
+- `GET /api/fs/versions?path=` - Get version history for a file
+- `POST /api/fs/versions/restore` - Restore file to a previous version
+
 ## FsProvider Interface
 
 ```typescript
@@ -209,12 +251,37 @@ Each blob tracks its reference count:
 - Database indexes include tenant for performance
 - API guards enforce tenant isolation
 
+### File Versioning
+- Automatic version creation on file updates
+- Version history with metadata (size, timestamp, creator)
+- One-click restore to any previous version
+- Versions share deduplicated blob storage
+
+### Hybrid Storage
+- Configure primary and fallback storage providers
+- Seamless migration between storage backends
+- Read from local disk with S3 fallback (or vice versa)
+
 ## Tech Stack
 
 - **Backend**: Node.js, NestJS, TypeScript, Prisma
 - **Frontend**: React, TypeScript, Vite, TailwindCSS, TanStack Query
 - **Database**: PostgreSQL
+- **Storage**: Local filesystem, S3/MinIO, PostgreSQL blobs
 - **Auth**: JWT, Passport.js, bcrypt
+- **DevOps**: Docker, Docker Compose
+
+## Documentation
+
+Detailed technical documentation is available in [docs/presentation/](docs/presentation/):
+
+- [Executive Summary](docs/presentation/01-executive-summary.md) - System overview
+- [Architecture Deep Dive](docs/presentation/02-architecture-deep-dive.md) - Component details
+- [Scalability Strategy](docs/presentation/03-scalability-strategy.md) - Performance patterns
+- [Feature Showcase](docs/presentation/04-feature-showcase.md) - Implementation details
+- [Infrastructure & DevOps](docs/presentation/05-infrastructure-devops.md) - Deployment
+- [Requirements Compliance](docs/presentation/06-requirements-compliance.md) - Spec mapping
+- [Database Architecture](docs/presentation/07-database-architecture.md) - Data modeling
 
 ## License
 
